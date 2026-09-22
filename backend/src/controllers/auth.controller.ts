@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import passport from "passport";
+import { env } from "../config/env";
 import { User } from "../models/User";
 import { MagicLink } from "../models/MagicLink";
 import { EmailService } from "../utils/email";
@@ -12,7 +13,6 @@ export async function googleAuth(
   res: Response,
   next: NextFunction
 ) {
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
   passport.authenticate("google", {
     scope: ["profile", "email"],
     prompt: "select_account",
@@ -24,7 +24,7 @@ export async function googleCallback(
   res: Response,
   next: NextFunction
 ) {
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  const frontendUrl = env.FRONTEND_URL;
   passport.authenticate("google", { failureRedirect: `${frontendUrl}/login` })(
     req,
     res,
@@ -109,8 +109,7 @@ export async function verifyMagicLink(req: Request, res: Response, next: NextFun
       if (err) {
         return next(err);
       }
-      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-      res.redirect(`${frontendUrl}/dashboard`);
+      res.redirect(`${env.FRONTEND_URL}/dashboard`);
     });
   } catch (error) {
     next(error);

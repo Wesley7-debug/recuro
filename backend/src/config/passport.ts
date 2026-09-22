@@ -1,9 +1,10 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { User } from "../models/User";
+import { env } from "./env";
 
 function getCallbackURL(path: string) {
-  const base = process.env.BACKEND_URL || "http://localhost:3001";
+  const base = (env.BACKEND_URL || "http://localhost:3001").trim().replace(/\/+$/, "");
   return `${base}${path}`;
 }
 
