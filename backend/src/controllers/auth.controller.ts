@@ -28,8 +28,12 @@ export async function googleCallback(
   passport.authenticate("google", { failureRedirect: `${frontendUrl}/login` })(
     req,
     res,
-    () => {
-      res.redirect(`${frontendUrl}/dashboard`);
+    (err: any) => {
+      if (err) return next(err);
+      req.session.save((saveErr) => {
+        if (saveErr) return next(saveErr);
+        res.redirect(`${frontendUrl}/dashboard`);
+      });
     }
   );
 }
@@ -109,7 +113,10 @@ export async function verifyMagicLink(req: Request, res: Response, next: NextFun
       if (err) {
         return next(err);
       }
-      res.redirect(`${env.FRONTEND_URL}/dashboard`);
+      req.session.save((saveErr) => {
+        if (saveErr) return next(saveErr);
+        res.redirect(`${env.FRONTEND_URL}/dashboard`);
+      });
     });
   } catch (error) {
     next(error);
