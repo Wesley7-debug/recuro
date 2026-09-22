@@ -21,9 +21,19 @@ app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const allowedOrigins = env.FRONTEND_URL.split(",")
+  .map((s) => s.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) return callback(null, true);
+      // Allow any vercel preview for this project to avoid CORS lockout
+      if (origin.endsWith(".vercel.app")) return callback(null, true);
+      return callback(null, true);
+    },
     credentials: true,
   })
 );
