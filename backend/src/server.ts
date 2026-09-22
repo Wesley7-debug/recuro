@@ -15,6 +15,7 @@ import notificationRoutes from "./routes/notification.routes";
 import userRoutes from "./routes/user.routes";
 import statementRoutes from "./routes/statement.routes";
 import billingReminderRoutes from "./routes/billingReminder.routes";
+import savingsRoutes from "./routes/savings.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { runBillingReminders } from "./services/billingReminder.service";
 
@@ -81,6 +82,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/transactions/statements", statementRoutes);
 app.use("/api/billing-reminders", billingReminderRoutes);
+app.use("/api/savings", savingsRoutes);
 
 // Error handling
 app.use(errorHandler);
@@ -88,19 +90,14 @@ app.use(errorHandler);
 // Billing reminder cron — check every hour
 const REMINDER_INTERVAL = 60 * 60 * 1000;
 setInterval(() => {
-  runBillingReminders().catch((err) => {
-    console.error("Billing reminder cron error:", err.message);
-  });
+  runBillingReminders().catch(() => {});
 }, REMINDER_INTERVAL);
 
 async function main() {
   await connectDB();
-  app.listen(env.PORT, () => {
-    console.log(`Recuro API running on http://localhost:${env.PORT}`);
-  });
+  app.listen(env.PORT);
 }
 
-main().catch((err) => {
-  console.error("Failed to start server:", err);
+main().catch(() => {
   process.exit(1);
 });

@@ -1,6 +1,13 @@
 import { create } from "zustand";
 import { api } from "../lib/api/client";
 
+export interface PriceHistoryEntry {
+  amount: number;
+  currency: string;
+  date: string;
+  source: "initial" | "manual" | "statement";
+}
+
 export interface Subscription {
   _id: string;
   userId: string;
@@ -11,7 +18,9 @@ export interface Subscription {
   currency: string;
   billingCycle: "weekly" | "monthly" | "quarterly" | "yearly";
   nextBillingDate: string;
-  status: "active" | "cancelled" | "paused";
+  status: "active" | "cancelled" | "paused" | "trial";
+  trialEndDate?: string | null;
+  priceHistory?: PriceHistoryEntry[];
   createdAt: string;
   updatedAt: string;
 }

@@ -31,8 +31,7 @@ async function tryParseWithAI(rawText: string): Promise<ParsedTransaction[]> {
   try {
     const { parseWithAI } = await import("./aiParser.service");
     return await parseWithAI(rawText);
-  } catch (err: any) {
-    console.error("AI parsing skipped:", err.message);
+  } catch {
     return [];
   }
 }
@@ -59,8 +58,7 @@ async function tryDetectWithAI(
       classification: "subscription_candidate" as DetectionClassification,
       reasons: ["AI-detected subscription pattern"],
     }));
-  } catch (err: any) {
-    console.error("AI detection skipped:", err.message);
+  } catch {
     return null;
   }
 }

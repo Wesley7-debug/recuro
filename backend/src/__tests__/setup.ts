@@ -8,6 +8,7 @@ import notificationRoutes from "../routes/notification.routes";
 import userRoutes from "../routes/user.routes";
 import statementRoutes from "../routes/statement.routes";
 import billingReminderRoutes from "../routes/billingReminder.routes";
+import savingsRoutes from "../routes/savings.routes";
 import { errorHandler } from "../middleware/errorHandler";
 import { User } from "../models/User";
 import { MagicLink } from "../models/MagicLink";
@@ -48,6 +49,7 @@ export function createTestApp() {
   app.use("/api/user", userRoutes);
   app.use("/api/transactions/statements", statementRoutes);
   app.use("/api/billing-reminders", billingReminderRoutes);
+  app.use("/api/savings", savingsRoutes);
 
   app.use(errorHandler);
 

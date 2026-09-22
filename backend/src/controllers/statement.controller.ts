@@ -12,6 +12,12 @@ import {
   normalizeMerchant,
   merchantSimilarity,
 } from "../services/merchantNormalization.service";
+import {
+  applyAmountChange,
+  initialPriceHistory,
+  notifyPriceChange,
+} from "../services/priceHistory.service";
+import { checkAndAlertBudgets } from "../services/budgetAlert.service";
 import { ApiError } from "../utils/apiError";
 import { sendSuccess } from "../utils/apiResponse";
 
@@ -175,6 +181,12 @@ export async function addDetectedSubscriptions(
       });
 
       if (existing) {
+        // Price-hike detection: compare the re-parsed amount against the
+        // previously stored one before overwriting.
+        const prevAmount = existing.amount;
+        const prevCurrency = existing.currency;
+        const prevHistory = [...((existing.priceHistory as any[]) || [])];
+
         existing.amount = sub.amount;
         existing.currency = sub.currency;
         existing.billingCycle = normalizeBillingCycle(sub.billingCycle);
@@ -182,7 +194,23 @@ export async function addDetectedSubscriptions(
           [new Date(sub.lastDate)],
           existing.billingCycle,
         );
+
+        const result = applyAmountChange({
+          name: existing.name,
+          prevAmount,
+          prevCurrency,
+          newAmount: sub.amount,
+          newCurrency: sub.currency,
+          history: prevHistory,
+          source: "statement",
+        });
+        existing.priceHistory = result.history as any;
         await existing.save();
+
+        if (result.notification && req.userId) {
+          await notifyPriceChange(req.userId, result.notification);
+        }
+
         updated.push(existing.name || existing.provider);
       } else {
         const cycle = normalizeBillingCycle(sub.billingCycle);
@@ -197,6 +225,7 @@ export async function addDetectedSubscriptions(
           billingCycle: cycle,
           nextBillingDate: nextDate,
           status: "active",
+          priceHistory: initialPriceHistory(sub.amount, sub.currency),
         });
 
         added.push(sub.name);
@@ -205,6 +234,10 @@ export async function addDetectedSubscriptions(
 
     // Cleanup
     detectionStore.delete(statementId);
+
+    if (req.userId) {
+      checkAndAlertBudgets(req.userId as string).catch(() => {});
+    }
 
     sendSuccess(res, { added, updated, count: added.length + updated.length });
   } catch (error) {

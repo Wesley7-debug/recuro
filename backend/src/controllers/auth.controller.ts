@@ -34,34 +34,6 @@ export async function googleCallback(
   );
 }
 
-export async function githubAuth(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-  passport.authenticate("github", { scope: ["user:email"] })(
-    req,
-    res,
-    next
-  );
-}
-
-export async function githubCallback(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-  passport.authenticate("github", { failureRedirect: `${frontendUrl}/login` })(
-    req,
-    res,
-    () => {
-      res.redirect(`${frontendUrl}/dashboard`);
-    }
-  );
-}
-
 export async function requestMagicLink(req: Request, res: Response, next: NextFunction) {
   try {
     const { email, emailConsent, preferredCurrency } = req.body;
@@ -158,6 +130,8 @@ export async function me(req: Request, res: Response, next: NextFunction) {
       avatar: user.avatar,
       preferred_currency: user.preferred_currency,
       email_notifications_enabled: user.email_notifications_enabled,
+      budgetCaps: (user as any).budgetCaps || {},
+      budget_caps: (user as any).budgetCaps || {},
       provider: user.provider,
       created_at: user.createdAt,
       updated_at: user.updatedAt,

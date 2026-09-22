@@ -100,8 +100,8 @@ async function send(to: string, subject: string, html: string) {
         "X-Mailer": "Recuro",
       },
     });
-  } catch (err: any) {
-    console.error(`Email failed to ${to} (${subject}):`, err.message);
+  } catch {
+    // Email failed silently
   }
 }
 
@@ -234,6 +234,88 @@ export const EmailService = {
         </td></tr></table>
         <table cellpadding="0" cellspacing="0" style="margin:32px auto 0;"><tr><td style="background:${C.primary};border-radius:10px;box-shadow:0 4px 14px ${C.primaryShadow};"><a href="${env.FRONTEND_URL}/dashboard/subscriptions" style="display:inline-block;padding:15px 40px;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;letter-spacing:0.3px;">View in Dashboard &rarr;</a></td></tr></table>
       `, c.barColor),
+    );
+  },
+
+  async sendTrialEndingEmail(
+    to: string,
+    subName: string,
+    amount: number,
+    currency: string,
+    reminderType: "trial_3_days" | "trial_1_days",
+    trialEndDate: Date,
+  ) {
+    const symbols: Record<string, string> = { USD: "$", EUR: "\u20ac", GBP: "\u00a3", NGN: "\u20a6" };
+    const sym = symbols[currency] || "$";
+    const dateStr = trialEndDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
+    const configs = {
+      trial_3_days: {
+        timing: "in 3 days",
+        badge: "TRIAL ENDS IN 3 DAYS",
+        badgeColor: C.warmDark,
+        badgeBg: "#ede4c8",
+        urgency: "Approaching",
+        emoji: "\u26a0\ufe0f",
+        barColor: C.warmDark,
+        note: "Your free trial is ending soon. Cancel before then to avoid being charged.",
+      },
+      trial_1_days: {
+        timing: "tomorrow",
+        badge: "TRIAL ENDS TOMORROW",
+        badgeColor: C.errorText,
+        badgeBg: C.errorBg,
+        urgency: "Action Required",
+        emoji: "\ud83d\udea8",
+        barColor: C.errorText,
+        note: "Your free trial ends tomorrow. Cancel now if you don't want to be charged.",
+      },
+    };
+    const c = configs[reminderType];
+
+    await send(
+      to,
+      `${c.emoji} ${subName} free trial ends ${c.timing}`,
+      wrap(`${subName} trial ends ${c.timing}`, `
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;"><tr><td style="background:${c.badgeBg};border-radius:999px;padding:7px 18px;"><span style="color:${c.badgeColor};font-size:11px;font-weight:700;letter-spacing:1.5px;">${c.emoji} ${c.badge}</span></td></tr></table>
+        <h1 style="color:${C.ink};font-size:26px;font-weight:700;margin:0 0 12px;text-align:center;letter-spacing:-0.5px;">Free Trial Ending</h1>
+        <p style="color:${C.inkBody};font-size:15px;margin:0 0 0;text-align:center;line-height:1.6;">Your <strong style="color:${C.ink};">${subName}</strong> free trial ends ${c.timing}.</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin:32px 0 0;"><tr><td style="background:${C.surfaceAlt};border:1px solid ${C.borderLight};border-radius:12px;padding:28px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;"><tr><td><p style="color:${C.inkFaint};font-size:10px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 6px;">Service</p><p style="color:${C.ink};font-size:20px;font-weight:700;margin:0;letter-spacing:-0.3px;">${subName}</p></td><td align="right" valign="top"><table cellpadding="0" cellspacing="0"><tr><td style="background:${c.badgeBg};border-radius:8px;padding:6px 12px;"><span style="color:${c.badgeColor};font-size:11px;font-weight:600;">${c.urgency}</span></td></tr></table></td></tr></table>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;"><tr><td style="border-top:1px solid ${C.borderLight};"></td></tr></table>
+          <table width="100%" cellpadding="0" cellspacing="0"><tr><td width="50%"><p style="color:${C.inkFaint};font-size:10px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 6px;">Then Charged</p><p style="color:${C.ink};font-size:28px;font-weight:700;margin:0;letter-spacing:-0.5px;">${sym}${amount.toFixed(2)}</p></td><td width="50%" align="right"><p style="color:${C.inkFaint};font-size:10px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 6px;">Trial Ends</p><p style="color:${C.inkBody};font-size:15px;font-weight:600;margin:0;">${dateStr}</p></td></tr></table>
+          <p style="color:${C.inkMuted};font-size:13px;margin:20px 0 0;line-height:1.5;">${c.note}</p>
+        </td></tr></table>
+        <table cellpadding="0" cellspacing="0" style="margin:32px auto 0;"><tr><td style="background:${C.primary};border-radius:10px;box-shadow:0 4px 14px ${C.primaryShadow};"><a href="${env.FRONTEND_URL}/dashboard/subscriptions" style="display:inline-block;padding:15px 40px;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;letter-spacing:0.3px;">View in Dashboard &rarr;</a></td></tr></table>
+      `, c.barColor),
+    );
+  },
+
+  async sendBudgetExceededEmail(
+    to: string,
+    category: string,
+    total: number,
+    cap: number,
+    currency: string,
+  ) {
+    const symbols: Record<string, string> = { USD: "$", EUR: "\u20ac", GBP: "\u00a3", NGN: "\u20a6" };
+    const sym = symbols[currency] || "$";
+    const catLabel = category.charAt(0).toUpperCase() + category.slice(1);
+    await send(
+      to,
+      `⚠️ Budget exceeded: ${catLabel} ${sym}${total.toFixed(2)}/${sym}${cap.toFixed(2)}`,
+      wrap(`Budget exceeded: ${catLabel}`, `
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;"><tr><td style="background:${C.errorBg};border:1px solid ${C.errorBorder};border-radius:999px;padding:7px 18px;"><span style="color:${C.errorText};font-size:11px;font-weight:700;letter-spacing:1.5px;">\u26a0\ufe0f BUDGET EXCEEDED</span></td></tr></table>
+        <h1 style="color:${C.ink};font-size:26px;font-weight:700;margin:0 0 12px;text-align:center;letter-spacing:-0.5px;">Budget Exceeded</h1>
+        <p style="color:${C.inkBody};font-size:15px;margin:0 0 0;text-align:center;line-height:1.6;">Your <strong style="color:${C.ink};">${catLabel}</strong> spending has exceeded your monthly cap.</p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin:32px 0 0;"><tr><td style="background:${C.surfaceAlt};border:1px solid ${C.borderLight};border-radius:12px;padding:28px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;"><tr><td><p style="color:${C.inkFaint};font-size:10px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 6px;">Category</p><p style="color:${C.ink};font-size:20px;font-weight:700;margin:0;letter-spacing:-0.3px;">${catLabel}</p></td><td align="right" valign="top"><table cellpadding="0" cellspacing="0"><tr><td style="background:${C.errorBg};border-radius:8px;padding:6px 12px;"><span style="color:${C.errorText};font-size:11px;font-weight:600;">Over budget</span></td></tr></table></td></tr></table>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;"><tr><td style="border-top:1px solid ${C.borderLight};"></td></tr></table>
+          <table width="100%" cellpadding="0" cellspacing="0"><tr><td width="50%"><p style="color:${C.inkFaint};font-size:10px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 6px;">Spent</p><p style="color:${C.errorText};font-size:28px;font-weight:700;margin:0;letter-spacing:-0.5px;">${sym}${total.toFixed(2)}</p></td><td width="50%" align="right"><p style="color:${C.inkFaint};font-size:10px;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 6px;">Cap</p><p style="color:${C.inkBody};font-size:15px;font-weight:600;margin:0;">${sym}${cap.toFixed(2)}</p></td></tr></table>
+          <p style="color:${C.inkMuted};font-size:13px;margin:20px 0 0;line-height:1.5;">You've spent ${sym}${total.toFixed(2)} of your ${sym}${cap.toFixed(2)} ${catLabel.toLowerCase()} budget for the month.</p>
+        </td></tr></table>
+        <table cellpadding="0" cellspacing="0" style="margin:32px auto 0;"><tr><td style="background:${C.primary};border-radius:10px;box-shadow:0 4px 14px ${C.primaryShadow};"><a href="${env.FRONTEND_URL}/dashboard" style="display:inline-block;padding:15px 40px;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;letter-spacing:0.3px;">View Dashboard &rarr;</a></td></tr></table>
+      `, C.errorText),
     );
   },
 

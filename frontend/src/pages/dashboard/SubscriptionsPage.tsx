@@ -1,12 +1,13 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import {
   useSubscriptionStore,
   type Subscription,
 } from "../../stores/subscriptionStore";
 import { useAuth } from "../../contexts/AuthContext";
 import { api } from "../../lib/api/client";
-import { formatCurrency } from "../../lib/utils";
+import { formatCurrency, monthlyEquivalent } from "../../lib/utils";
 import { fetchRates, convert } from "../../lib/exchangeRate";
+import { getCancellationUrl } from "../../lib/cancellationUrls";
 import PageHeader from "../../components/PageHeader";
 import EmptyState from "../../components/EmptyState";
 import LoadingSpinner from "../../components/LoadingSpinner";
@@ -26,7 +27,7 @@ const CATEGORIES = [
   "other",
 ];
 const CYCLES = ["weekly", "monthly", "quarterly", "yearly"];
-const STATUSES = ["active", "cancelled", "paused"];
+const STATUSES = ["active", "cancelled", "paused", "trial"];
 
 const emptyForm = {
   name: "",
@@ -37,6 +38,7 @@ const emptyForm = {
   billingCycle: "monthly",
   nextBillingDate: "",
   status: "active",
+  trialEndDate: "",
 };
 
 type DetectedSub = {
@@ -105,10 +107,43 @@ export default function SubscriptionsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Subscription | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Cancel confirmation
+  const [cancelTarget, setCancelTarget] = useState<Subscription | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
   useEffect(() => {
     fetchSubscriptions();
     fetchRates();
   }, []);
+
+  // Budget cap warning: compute current monthly spend per category
+  const budgetWarning = useMemo(() => {
+    if (!form.category || !form.amount) return null;
+    // budgetCaps may be undefined until user loads — wait for it; handle Map vs plain object
+    const rawCaps = (user as any)?.budgetCaps || (user as any)?.budget_caps || {};
+    const caps = rawCaps instanceof Map ? Object.fromEntries(rawCaps as any) : rawCaps;
+    const rawCap = caps[form.category];
+    const cap = rawCap !== undefined && rawCap !== null ? Number(rawCap) : null;
+    if (cap === null || cap === undefined || isNaN(cap) || cap <= 0) return null;
+    const parsedAmount = parseFloat(form.amount);
+    if (isNaN(parsedAmount) || parsedAmount < 0) return null;
+    const newMonthly = monthlyEquivalent(
+      convert(parsedAmount, form.currency || "USD", userCurrency),
+      form.billingCycle
+    );
+    // sum other active subs in same category (excluding editing one)
+    const otherTotal = subscriptions
+      .filter((s) => s.category === form.category && (s.status === "active" || s.status === "trial") && s._id !== editingId)
+      .reduce((sum, s) => {
+        const conv = convert(Number(s.amount), s.currency || "USD", userCurrency);
+        return sum + monthlyEquivalent(conv, s.billingCycle);
+      }, 0);
+    const total = otherTotal + newMonthly;
+    if (total > cap) {
+      return `This puts ${form.category.charAt(0).toUpperCase()+form.category.slice(1)} at ${formatCurrency(total, userCurrency)}/${formatCurrency(cap, userCurrency)} for the month`;
+    }
+    return null;
+  }, [form.category, form.amount, form.currency, form.billingCycle, subscriptions, editingId, user, userCurrency]);
 
   const handleFile = async (file: File) => {
     setUploadError("");
@@ -252,6 +287,7 @@ export default function SubscriptionsPage() {
       billingCycle: s.billingCycle,
       nextBillingDate: s.nextBillingDate.split("T")[0],
       status: s.status,
+      trialEndDate: (s as any).trialEndDate ? (s as any).trialEndDate.split("T")[0] : "",
     });
     setEditingId(s._id);
     setFormError("");
@@ -264,12 +300,39 @@ export default function SubscriptionsPage() {
     setDeleting(false);
   };
 
+  const handleCancelSubscription = (s: Subscription) => {
+    const url = getCancellationUrl(s.provider, s.name);
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(s.provider + " cancel subscription")}`;
+      window.open(searchUrl, "_blank", "noopener,noreferrer");
+      showToast(`We don't have a direct link for ${s.provider} yet — opened a Google search instead.`, "info");
+    }
+    setCancelTarget(s);
+    setShowCancelConfirm(true);
+  };
+
+  const confirmCancelYes = async () => {
+    if (!cancelTarget) return;
+    try {
+      await updateSubscription(cancelTarget._id, { status: "cancelled" as any });
+      showToast(`${cancelTarget.name} marked as cancelled.`, "success");
+    } catch {}
+    setShowCancelConfirm(false);
+    setCancelTarget(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
+    if (form.status === "trial" && !form.trialEndDate) {
+      setFormError("Trial end date is required for trial subscriptions");
+      return;
+    }
     setSaving(true);
     try {
-      const payload = {
+      const payload: any = {
         name: form.name,
         provider: form.provider,
         category: form.category,
@@ -279,6 +342,9 @@ export default function SubscriptionsPage() {
         nextBillingDate: form.nextBillingDate,
         status: form.status as Subscription["status"],
       };
+      if (form.trialEndDate) payload.trialEndDate = form.trialEndDate;
+      else if (form.status !== "trial") payload.trialEndDate = null;
+      // allow trial status without nextBillingDate? require it anyway
       if (editingId) {
         await updateSubscription(editingId, payload);
       } else {
@@ -857,6 +923,21 @@ export default function SubscriptionsPage() {
         )}
       </Modal>
 
+      {/* ── Cancel Confirm Modal ─────────────────────────── */}
+      <Modal
+        open={showCancelConfirm}
+        onClose={() => { setShowCancelConfirm(false); setCancelTarget(null); }}
+        title="Did you cancel?"
+      >
+        <div>
+          <p className="text-[14px] text-ink-muted mb-6">Did you cancel <strong className="text-ink">{cancelTarget?.name}</strong> on the provider's site?</p>
+          <div className="flex gap-3">
+            <button onClick={() => { setShowCancelConfirm(false); setCancelTarget(null); }} className="flex-1 ui-btn-secondary">Not yet</button>
+            <button onClick={confirmCancelYes} className="flex-1 ui-btn-primary">Yes, mark as cancelled</button>
+          </div>
+        </div>
+      </Modal>
+
       {/* ── Add / Edit Form Modal ─────────────────────────────── */}
       <Modal
         open={showForm}
@@ -866,6 +947,11 @@ export default function SubscriptionsPage() {
         {formError && (
           <div className="bg-error-bg border border-error-border text-error-text text-[13px] p-3 rounded-button mb-4">
             {formError}
+          </div>
+        )}
+        {budgetWarning && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[12px] p-3 rounded-button mb-4">
+            ⚠️ {budgetWarning}
           </div>
         )}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -954,19 +1040,28 @@ export default function SubscriptionsPage() {
               className="ui-input"
             />
           </FormField>
-          {editingId && (
-            <FormField label="Status">
-              <select
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
+          <FormField label="Status">
+            <select
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+              className="ui-input"
+            >
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          {form.status === "trial" && (
+            <FormField label="Trial end date">
+              <input
+                required
+                type="date"
+                value={form.trialEndDate}
+                onChange={(e) => setForm({ ...form, trialEndDate: e.target.value })}
                 className="ui-input"
-              >
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </option>
-                ))}
-              </select>
+              />
             </FormField>
           )}
           <div className="flex gap-3 pt-2">
@@ -1065,8 +1160,11 @@ export default function SubscriptionsPage() {
                           >
                             {s.name[0]}
                           </div>
-                          <span className="font-semibold text-ink">
+                          <span className="font-semibold text-ink flex items-center gap-1">
                             {s.name}
+                            {s.status === "trial" && (
+                              <span className="text-[9px] font-bold tracking-widest uppercase bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Trial</span>
+                            )}
                           </span>
                         </div>
                       </td>
@@ -1089,6 +1187,9 @@ export default function SubscriptionsPage() {
                           "en-US",
                           { month: "short", day: "numeric", year: "numeric" },
                         )}
+                        {(s as any).trialEndDate && s.status === "trial" && (
+                          <span className="block text-[11px] text-amber-600">Trial ends {new Date((s as any).trialEndDate).toLocaleDateString()}</span>
+                        )}
                       </td>
                       <td className="px-5 py-4">
                         <span
@@ -1097,18 +1198,26 @@ export default function SubscriptionsPage() {
                               ? "bg-cat-education-bg text-cat-education-text"
                               : s.status === "cancelled"
                                 ? "bg-error-bg text-error-action"
-                                : "bg-cat-finance-bg text-cat-finance-text"
+                                : s.status === "trial"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-cat-finance-bg text-cat-finance-text"
                           }`}
                         >
                           {s.status}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-right">
+                      <td className="px-5 py-4 text-right whitespace-nowrap">
                         <button
                           onClick={() => openEdit(s)}
-                          className="text-ink-faint hover:text-primary mr-3 transition-colors text-[12px] font-semibold"
+                          className="text-ink-faint hover:text-primary mr-2 transition-colors text-[12px] font-semibold"
                         >
-                          Edit
+                          Manage
+                        </button>
+                        <button
+                          onClick={() => handleCancelSubscription(s)}
+                          className="text-ink-faint hover:text-amber-600 mr-2 transition-colors text-[12px] font-semibold"
+                        >
+                          Cancel
                         </button>
                         <button
                           onClick={() => openDelete(s)}
@@ -1128,3 +1237,4 @@ export default function SubscriptionsPage() {
     </div>
   );
 }
+

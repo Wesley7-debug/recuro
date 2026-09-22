@@ -8,6 +8,8 @@ export interface User {
   avatar?: string;
   preferred_currency: string;
   email_notifications_enabled: boolean;
+  budgetCaps?: Record<string, number>;
+  budget_caps?: Record<string, number>;
   provider: string;
   created_at: string;
   updated_at: string;

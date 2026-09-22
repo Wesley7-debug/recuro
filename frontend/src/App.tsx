@@ -10,6 +10,7 @@ import OverviewPage from "./pages/dashboard/OverviewPage";
 import SubscriptionsPage from "./pages/dashboard/SubscriptionsPage";
 import NotificationsPage from "./pages/dashboard/NotificationsPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
+import CalendarPage from "./pages/dashboard/CalendarPage";
 import { ToastContainer } from "./components/Toast";
 
 export default function App() {
@@ -46,6 +47,7 @@ export default function App() {
           >
             <Route index element={<OverviewPage />} />
             <Route path="subscriptions" element={<SubscriptionsPage />} />
+            <Route path="calendar" element={<CalendarPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

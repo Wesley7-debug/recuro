@@ -4,11 +4,12 @@ export interface IUser extends Document {
   name: string;
   email: string;
   avatar?: string;
-  provider: "local" | "google" | "github";
+  provider: "local" | "google";
   providerId?: string;
   passwordHash?: string;
   preferred_currency: string;
   email_notifications_enabled: boolean;
+  budgetCaps?: Record<string, number>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,11 +19,12 @@ const userSchema = new Schema<IUser>(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     avatar: { type: String },
-    provider: { type: String, enum: ["local", "google", "github"], default: "local" },
+    provider: { type: String, enum: ["local", "google"], default: "local" },
     providerId: { type: String },
     passwordHash: { type: String },
     preferred_currency: { type: String, default: "NGN" },
     email_notifications_enabled: { type: Boolean, default: false },
+    budgetCaps: { type: Schema.Types.Mixed, default: {} },
   },
   { timestamps: true }
 );

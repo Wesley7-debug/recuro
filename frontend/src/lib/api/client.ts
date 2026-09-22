@@ -24,7 +24,6 @@ function getOAuthURL(provider: string) {
 export const api = {
   auth: {
     googleURL: () => getOAuthURL("google"),
-    githubURL: () => getOAuthURL("github"),
     requestMagicLink: (email: string, emailConsent?: boolean, preferredCurrency?: string) =>
       request<{ message: string }>("/api/auth/magic-link", {
         method: "POST",
@@ -34,11 +33,13 @@ export const api = {
     logout: () => request<any>("/api/auth/logout", { method: "POST" }),
   },
   subscriptions: {
-    list: (params?: { search?: string; status?: string; category?: string }) => {
+    list: (params?: { search?: string; status?: string; category?: string; from?: string; to?: string }) => {
       const query = new URLSearchParams();
       if (params?.search) query.set("search", params.search);
       if (params?.status) query.set("status", params.status);
       if (params?.category) query.set("category", params.category);
+      if (params?.from) query.set("from", params.from);
+      if (params?.to) query.set("to", params.to);
       const qs = query.toString();
       return request<any[]>(`/api/subscriptions${qs ? `?${qs}` : ""}`);
     },
@@ -58,8 +59,11 @@ export const api = {
       request<any>("/api/notifications/read-all", { method: "PATCH" }),
   },
   user: {
-    updateProfile: (data: { name?: string; email?: string; preferred_currency?: string; email_notifications_enabled?: boolean }) =>
+    updateProfile: (data: { name?: string; email?: string; preferred_currency?: string; email_notifications_enabled?: boolean; budgetCaps?: Record<string, number>; budget_caps?: Record<string, number> }) =>
       request<any>("/api/user/profile", { method: "PATCH", body: JSON.stringify(data) }),
+  },
+  savings: {
+    get: () => request<{ total: number; currency: string; entries: any[] }>("/api/savings"),
   },
   statements: {
     upload: async (file: File) => {

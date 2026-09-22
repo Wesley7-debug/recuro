@@ -4,6 +4,7 @@ import { useSubscriptionStore } from "../../stores/subscriptionStore";
 import { useAuth } from "../../contexts/AuthContext";
 import { formatCurrency, monthlyEquivalent } from "../../lib/utils";
 import { fetchRates, convert } from "../../lib/exchangeRate";
+import { api } from "../../lib/api/client";
 import PageHeader from "../../components/PageHeader";
 import StatCard from "../../components/StatCard";
 import EmptyState from "../../components/EmptyState";
@@ -15,13 +16,16 @@ export default function OverviewPage() {
   const { user } = useAuth();
   const currency = user?.preferred_currency || "NGN";
   const [ratesReady, setRatesReady] = useState(false);
+  const [savings, setSavings] = useState<{ total: number; currency: string } | null>(null);
 
   useEffect(() => {
     fetchSubscriptions();
     fetchRates().then(() => setRatesReady(true));
+    api.savings.get().then(setSavings).catch(() => {});
   }, []);
 
   const activeSubs = subscriptions.filter((s) => s.status === "active");
+  const trialSubs = subscriptions.filter((s) => s.status === "trial");
 
   const totalMonthly = activeSubs.reduce((sum, s) => {
     const amount = Number(s.amount);
@@ -39,6 +43,14 @@ export default function OverviewPage() {
     )
     .slice(0, 5);
 
+  const endingTrials = [...trialSubs]
+    .filter((s) => s.trialEndDate)
+    .sort((a, b) => new Date(a.trialEndDate as string).getTime() - new Date(b.trialEndDate as string).getTime())
+    .slice(0, 5);
+
+  const rawCaps = (user as any)?.budgetCaps || (user as any)?.budget_caps || {};
+  const budgetCaps: Record<string, number> = rawCaps instanceof Map ? Object.fromEntries(rawCaps as any) : rawCaps;
+
   if (loading || !ratesReady) return <LoadingSpinner />;
 
   return (
@@ -47,22 +59,27 @@ export default function OverviewPage() {
         title="Dashboard"
         subtitle="Overview of your subscriptions"
         action={
-          <Link to="/dashboard/subscriptions" className="ui-btn-primary">
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            Add subscription
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link to="/dashboard/calendar" className="ui-btn-secondary">
+              Calendar
+            </Link>
+            <Link to="/dashboard/subscriptions" className="ui-btn-primary">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Add subscription
+            </Link>
+          </div>
         }
       />
 
@@ -91,11 +108,12 @@ export default function OverviewPage() {
           bg="bg-cat-productivity-bg"
         />
         <StatCard
-          label="Total subscriptions"
-          value={subscriptions.length}
-          icon="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z"
-          color="text-cat-education-text"
-          bg="bg-cat-education-bg"
+          label="You've saved"
+          value={savings ? formatCurrency(savings.total, savings.currency) : formatCurrency(0, currency)}
+          sub="since joining"
+          icon="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z M12 2v2 M12 14v2 M4 12H2 M22 12h-2"
+          color="text-cat-finance-text"
+          bg="bg-cat-finance-bg"
         />
       </div>
 
@@ -177,10 +195,13 @@ export default function OverviewPage() {
                   </div>
                 );
               })}
+              {upcomingRenewals.length === 0 && (
+                <p className="text-[13px] text-ink-faint px-2 py-2">No upcoming renewals.</p>
+              )}
             </div>
           </div>
 
-          {/* Spending by category */}
+          {/* Spending by category with budget caps progress */}
           <div className="ui-card flex flex-col p-5 sm:p-6">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-[15px] font-semibold tracking-[-0.01em] text-ink">
@@ -192,7 +213,7 @@ export default function OverviewPage() {
               </span>
             </div>
 
-            <div className="-mx-2 space-y-0.5">
+            <div className="-mx-2 space-y-1">
               {Object.entries(
                 activeSubs.reduce(
                   (acc, s) => {
@@ -214,27 +235,79 @@ export default function OverviewPage() {
                 .sort((a, b) => b[1] - a[1])
                 .map(([category, amount]) => {
                   const colors = getCategoryColors(category);
+                  const cap = budgetCaps[category];
+                  const pct = cap ? (amount / cap) * 100 : 0;
+                  let barColor = "bg-primary";
+                  if (cap) {
+                    if (pct >= 100) barColor = "bg-red-500";
+                    else if (pct >= 80) barColor = "bg-amber-400";
+                  }
                   return (
                     <div
                       key={category}
-                      className="flex items-center justify-between gap-3 rounded-badge px-2 py-2.5 transition-colors hover:bg-surface-alt"
+                      className="rounded-badge px-2 py-2.5 transition-colors hover:bg-surface-alt"
                     >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span
-                          className={`h-2.5 w-2.5 shrink-0 rounded-full ${colors.dot}`}
-                        />
-                        <span className="truncate text-[13px] font-semibold capitalize leading-tight text-ink">
-                          {category}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span
+                            className={`h-2.5 w-2.5 shrink-0 rounded-full ${colors.dot}`}
+                          />
+                          <span className="truncate text-[13px] font-semibold capitalize leading-tight text-ink">
+                            {category}
+                          </span>
+                        </div>
+                        <span className="shrink-0 text-[13px] font-semibold tabular-nums text-ink">
+                          {formatCurrency(amount, currency)}
+                          {cap ? <span className="text-ink-faint font-normal"> / {formatCurrency(cap, currency)}</span> : null}
                         </span>
                       </div>
-                      <span className="shrink-0 text-[13px] font-semibold tabular-nums text-ink">
-                        {formatCurrency(amount, currency)}
-                      </span>
+                      {cap && (
+                        <div className="mt-2 h-1.5 w-full rounded-full bg-border-light overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${barColor}`}
+                            style={{ width: `${Math.min(pct, 100)}%` }}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
             </div>
           </div>
+
+          {/* Ending trials section */}
+          {endingTrials.length > 0 && (
+            <div className="ui-card flex flex-col p-5 sm:p-6 lg:col-span-2">
+              <div className="mb-5 flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-[15px] font-semibold tracking-[-0.01em] text-ink">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  Ending trials
+                </h3>
+                <span className="text-[12px] font-semibold text-ink-muted">{endingTrials.length} trial{endingTrials.length !== 1 ? "s" : ""}</span>
+              </div>
+              <div className="-mx-2 space-y-0.5">
+                {endingTrials.map((sub: any) => {
+                  const colors = getCategoryColors(sub.category);
+                  const displayAmount = convert(Number(sub.amount), sub.currency || "USD", currency);
+                  const daysLeft = Math.ceil((new Date(sub.trialEndDate).getTime() - Date.now()) / (86400000));
+                  return (
+                    <div key={sub._id} className="flex items-center justify-between gap-3 rounded-badge px-2 py-2.5 hover:bg-surface-alt">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-badge text-[12px] font-bold ${colors.bg} ${colors.text}`}>{sub.name[0]}</div>
+                        <div>
+                          <p className="text-[13px] font-semibold text-ink flex items-center gap-2">
+                            {sub.name} <span className="text-[10px] font-bold tracking-widest uppercase bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Trial</span>
+                          </p>
+                          <p className="text-[11px] text-ink-faint">Ends {new Date(sub.trialEndDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {daysLeft <= 0 ? "ending today" : `${daysLeft}d left`} · then {formatCurrency(displayAmount, currency)}</p>
+                        </div>
+                      </div>
+                      <span className="text-[12px] font-semibold text-amber-700">{daysLeft}d</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

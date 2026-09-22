@@ -18,6 +18,8 @@ function mockDoc(name: string, data: any) {
 
   // Apply schema defaults (mimic mongoose defaults)
   if (name === "MagicLink" && merged.used === undefined) merged.used = false;
+  if (merged.createdAt === undefined) merged.createdAt = new Date();
+  if (name !== "Notification" && merged.updatedAt === undefined) merged.updatedAt = new Date();
 
   const doc: any = { ...merged, _id: id };
   doc.save = vi.fn(async function () {
@@ -240,6 +242,8 @@ vi.mock("../utils/email", () => ({
     sendPasswordResetEmail: vi.fn(async () => {}),
     sendSubscriptionDetectedEmail: vi.fn(async () => {}),
     sendBillingReminder: vi.fn(async () => {}),
+    sendTrialEndingEmail: vi.fn(async () => {}),
+    sendBudgetExceededEmail: vi.fn(async () => {}),
     sendProductUpdate: vi.fn(async () => {}),
   },
 }));

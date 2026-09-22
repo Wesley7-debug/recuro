@@ -25,6 +25,20 @@ router.post(
     body("amount").isFloat({ min: 0 }).withMessage("Amount must be a positive number"),
     body("billingCycle").isIn(["weekly", "monthly", "quarterly", "yearly"]).withMessage("Invalid billing cycle"),
     body("nextBillingDate").isISO8601().withMessage("Valid next billing date is required"),
+    body("status")
+      .optional()
+      .isIn(["active", "cancelled", "paused", "trial"])
+      .withMessage("Invalid status")
+      .custom((value, { req }) => {
+        if (value === "trial" && !req.body?.trialEndDate) {
+          throw new Error("Trial end date is required for trial subscriptions");
+        }
+        return true;
+      }),
+    body("trialEndDate")
+      .optional({ nullable: true })
+      .isISO8601()
+      .withMessage("Valid trial end date is required"),
   ],
   validate,
   createSubscription
@@ -35,7 +49,20 @@ router.patch(
   [
     body("amount").optional().isFloat({ min: 0 }).withMessage("Amount must be a positive number"),
     body("billingCycle").optional().isIn(["weekly", "monthly", "quarterly", "yearly"]).withMessage("Invalid billing cycle"),
-    body("status").optional().isIn(["active", "cancelled", "paused"]).withMessage("Invalid status"),
+    body("status")
+      .optional()
+      .isIn(["active", "cancelled", "paused", "trial"])
+      .withMessage("Invalid status")
+      .custom((value, { req }) => {
+        if (value === "trial" && !req.body?.trialEndDate) {
+          throw new Error("Trial end date is required for trial subscriptions");
+        }
+        return true;
+      }),
+    body("trialEndDate")
+      .optional({ nullable: true })
+      .isISO8601()
+      .withMessage("Valid trial end date is required"),
   ],
   validate,
   updateSubscription

@@ -22,6 +22,75 @@ const REMINDER_WINDOWS: Record<
   "1_day": [1, 1],
 };
 
+const TRIAL_CONFIGS = [
+  { type: "trial_3_days" as const, window: [2, 3] as [number, number] },
+  { type: "trial_1_days" as const, window: [1, 1] as [number, number] },
+];
+
+async function runTrialReminders(now: Date): Promise<void> {
+  const upcomingTrials = await Subscription.find({
+    status: "trial",
+    trialEndDate: {
+      $ne: null,
+      $gte: now,
+      $lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  for (const sub of upcomingTrials) {
+    if (!sub.trialEndDate) continue;
+    const user = await User.findById(sub.userId);
+    if (!user) continue;
+    if (!user.email_notifications_enabled) continue;
+
+    const daysUntil = Math.ceil(
+      (sub.trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    const preferred = user.preferred_currency || sub.currency || "USD";
+    let displayAmount = sub.amount;
+    let displayCurrency = sub.currency;
+    if (preferred !== sub.currency) {
+      const rate = await getExchangeRate(sub.currency, preferred);
+      displayAmount = convertAmount(sub.amount, sub.currency, preferred, rate);
+      displayCurrency = preferred;
+    }
+
+    for (const config of TRIAL_CONFIGS) {
+      const [minDays, maxDays] = config.window;
+      if (daysUntil < minDays || daysUntil > maxDays) continue;
+
+      const existing = await BillingReminder.findOne({
+        subscriptionId: sub._id,
+        billingDate: sub.trialEndDate,
+        reminderType: config.type,
+      });
+      if (existing) continue;
+
+      await EmailService.sendTrialEndingEmail(
+        user.email,
+        sub.name,
+        displayAmount,
+        displayCurrency,
+        config.type,
+        sub.trialEndDate,
+      );
+
+      try {
+        await BillingReminder.create({
+          userId: user._id,
+          subscriptionId: sub._id,
+          billingDate: sub.trialEndDate,
+          reminderType: config.type,
+          sentAt: new Date(),
+        });
+      } catch (err: any) {
+        if (err?.code !== 11000) throw err;
+      }
+    }
+  }
+}
+
 export async function runBillingReminders(): Promise<void> {
   const now = new Date();
 
@@ -92,4 +161,6 @@ export async function runBillingReminders(): Promise<void> {
       }
     }
   }
+
+  await runTrialReminders(now);
 }
