@@ -5,6 +5,7 @@ import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import VerifyPage from "./pages/VerifyPage";
+import AuthCallbackPage from "./pages/AuthCallbackPage";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import OverviewPage from "./pages/dashboard/OverviewPage";
 import SubscriptionsPage from "./pages/dashboard/SubscriptionsPage";
@@ -37,6 +38,7 @@ export default function App() {
             }
           />
           <Route path="/auth/verify" element={<VerifyPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route
             path="/dashboard"
             element={

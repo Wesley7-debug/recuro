@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-
-const API_URL = import.meta.env.VITE_API_URL || "";
+import { api } from "../lib/api/client";
 
 export default function VerifyPage() {
   const [searchParams] = useSearchParams();
@@ -10,7 +9,7 @@ export default function VerifyPage() {
   useEffect(() => {
     const token = searchParams.get("token");
     if (token) {
-      window.location.href = `${API_URL}/api/auth/verify?token=${token}`;
+      window.location.href = `${api.auth.verifyURL(token)}`;
     } else {
       setStatus("error");
     }

@@ -7,6 +7,7 @@ import { EmailService } from "../utils/email";
 import { generateToken } from "../utils/token";
 import { ApiError } from "../utils/apiError";
 import { sendSuccess } from "../utils/apiResponse";
+import { signAuthToken, verifyAuthToken } from "../utils/authToken";
 
 export async function googleAuth(
   req: Request,
@@ -25,15 +26,16 @@ export async function googleCallback(
   next: NextFunction
 ) {
   const frontendUrl = env.FRONTEND_URL;
-  passport.authenticate("google", { failureRedirect: `${frontendUrl}/login` })(
+  passport.authenticate("google", { failureRedirect: `${frontendUrl}/login`, session: false })(
     req,
     res,
     (err: any) => {
       if (err) return next(err);
-      req.session.save((saveErr) => {
-        if (saveErr) return next(saveErr);
-        res.redirect(`${frontendUrl}/dashboard`);
-      });
+      const user = req.user as any;
+      if (!user) return res.redirect(`${frontendUrl}/login`);
+
+      const token = signAuthToken(user);
+      res.redirect(`${frontendUrl}/auth/callback?token=${encodeURIComponent(token)}`);
     }
   );
 }
@@ -109,15 +111,8 @@ export async function verifyMagicLink(req: Request, res: Response, next: NextFun
       await EmailService.sendWelcomeEmail(user.email, user.name);
     }
 
-    req.login(user, (err) => {
-      if (err) {
-        return next(err);
-      }
-      req.session.save((saveErr) => {
-        if (saveErr) return next(saveErr);
-        res.redirect(`${env.FRONTEND_URL}/dashboard`);
-      });
-    });
+    const authToken = signAuthToken(user);
+    res.redirect(`${env.FRONTEND_URL}/auth/callback?token=${encodeURIComponent(authToken)}`);
   } catch (error) {
     next(error);
   }
@@ -125,10 +120,22 @@ export async function verifyMagicLink(req: Request, res: Response, next: NextFun
 
 export async function me(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!req.isAuthenticated()) {
+    let user = req.user as any;
+    const authHeader = req.headers.authorization;
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+    if (bearerToken) {
+      const payload = verifyAuthToken(bearerToken);
+      if (!payload.sub) throw new ApiError(401, "Not authenticated");
+      user = await User.findById(payload.sub);
+    } else if (!req.isAuthenticated()) {
       throw new ApiError(401, "Not authenticated");
     }
-    const user = req.user as any;
+
+    if (!user) {
+      throw new ApiError(401, "Not authenticated");
+    }
+
     sendSuccess(res, {
       id: user._id,
       name: user.name,
@@ -149,6 +156,10 @@ export async function me(req: Request, res: Response, next: NextFunction) {
 
 export async function logout(req: Request, res: Response, next: NextFunction) {
   try {
+    if (!req.isAuthenticated()) {
+      return sendSuccess(res, { message: "Logged out" });
+    }
+
     req.logout((err) => {
       if (err) return next(err);
       req.session.destroy((err2) => {

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { api } from "../lib/api/client";
+import { api, clearAuthToken } from "../lib/api/client";
 
 export interface User {
   id: string;
@@ -41,7 +41,11 @@ export const useUserStore = create<UserStore>((set) => ({
   },
 
   logout: async () => {
-    await api.auth.logout();
+    try {
+      await api.auth.logout();
+    } finally {
+      clearAuthToken();
+    }
     set({ user: null });
   },
 

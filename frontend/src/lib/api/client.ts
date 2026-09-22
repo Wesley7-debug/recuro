@@ -1,13 +1,43 @@
-const API_URL = import.meta.env.VITE_API_URL || "";
+const TOKEN_KEY = "recuro.authToken";
+
+function resolveApiUrl() {
+  const configured = import.meta.env.VITE_API_URL;
+  if (configured) return configured.replace(/\/+$/, "");
+
+  if (typeof window !== "undefined" && window.location.hostname !== "localhost") {
+    return "https://recuro-backend.onrender.com";
+  }
+
+  return "";
+}
+
+const API_URL = resolveApiUrl();
+
+export function getAuthToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setAuthToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearAuthToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getAuthToken();
+  const headers = new Headers(options.headers);
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
   const res = await fetch(`${API_URL}${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers,
   });
 
-  const body = await res.json();
+  const body = await res.json().catch(() => ({}));
 
   if (!res.ok) {
     throw new Error(body.message || `Request failed: ${res.status}`);
@@ -17,13 +47,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 function getOAuthURL(provider: string) {
-  const base = import.meta.env.VITE_API_URL || "";
-  return `${base}/api/auth/${provider}`;
+  return `${API_URL}/api/auth/${provider}`;
 }
 
 export const api = {
   auth: {
     googleURL: () => getOAuthURL("google"),
+    verifyURL: (token: string) => `${API_URL}/api/auth/verify?token=${encodeURIComponent(token)}`,
     requestMagicLink: (email: string, emailConsent?: boolean, preferredCurrency?: string) =>
       request<{ message: string }>("/api/auth/magic-link", {
         method: "POST",
@@ -67,12 +97,16 @@ export const api = {
   },
   statements: {
     upload: async (file: File) => {
-      const base = import.meta.env.VITE_API_URL || "";
+      const token = getAuthToken();
       const formData = new FormData();
       formData.append("statement", file);
-      const res = await fetch(`${base}/api/transactions/statements`, {
+      const headers = new Headers();
+      if (token) headers.set("Authorization", `Bearer ${token}`);
+
+      const res = await fetch(`${API_URL}/api/transactions/statements`, {
         method: "POST",
         credentials: "include",
+        headers,
         body: formData,
       });
       const body = await res.json();

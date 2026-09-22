@@ -98,7 +98,16 @@ describe("Auth Routes", () => {
         .get(`/api/auth/verify?token=${link.token}`);
 
       expect(res.status).toBe(302);
-      expect(res.headers.location).toContain("/dashboard");
+      expect(res.headers.location).toContain("/auth/callback?token=");
+
+      const authToken = new URL(res.headers.location).searchParams.get("token");
+      expect(authToken).toBeTruthy();
+
+      const meRes = await request(app)
+        .get("/api/auth/me")
+        .set("Authorization", `Bearer ${authToken}`);
+      expect(meRes.status).toBe(200);
+      expect(meRes.body.data.email).toBe("newuser@test.com");
 
       const user = await (User as any).findOne({ email: "newuser@test.com" });
       expect(user).toBeTruthy();

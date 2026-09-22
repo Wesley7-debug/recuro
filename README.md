@@ -20,7 +20,7 @@ Recuro helps you see, control, and get reminded about every recurring payment yo
 
 ```
 Landing page (/)
-      │
+
       ▼
 Sign up (/signup) ── magic link to email ──► /auth/verify ──► session (30 days)
       │   pick currency + email consent              │   (or "Continue with Google")
@@ -47,11 +47,10 @@ Sign up (/signup) ── magic link to email ──► /auth/verify ──► se
 
 #### Subscription management
 
-- Each subscription stores: name, provider, category, amount, currency, billing cycle (`weekly` / `monthly` / `quarterly` / `yearly`), next billing date, status (`active` / `paused` / `cancelled` / `trial`), `trialEndDate` (when status is `trial`), and `priceHistory` (array of `{ amount, currency, date, source }` for price-hike tracking).
+- Each subscription stores: name, provider, category, amount, currency, billing cycle (`weekly` / `monthly` / `quarterly` / `yearly`), next billing date, and status (`active` / `paused` / `cancelled`).
 - Categories: entertainment, productivity, fitness, education, finance, social, utilities, other — each with its own badge color.
-- The list supports server-side search (name/provider), status filtering, and is sorted by next renewal date. Trial subscriptions show a distinct "Trial" badge and the trial end date; date-range filtering via `?from=&to=` powers the calendar view.
-- Edit or delete via row actions; status changes (pause/cancel/reactivate) happen in the edit modal. Deletes require confirmation. Price history is updated on any amount change (manual or statement re-upload) and a hike triggers a notification (see below).
-- **Manage & Cancel buttons** — Each row has `Manage` (opens the existing edit modal) and `Cancel Subscription` (opens the provider's external cancellation page in a new tab via a lookup table — e.g. Netflix → `https://www.netflix.com/cancelplan`, Spotify → `https://www.spotify.com/account/cancel/` — case-insensitive, alias-aware via merchant-normalization; falls back to a Google search for "`{provider} cancel subscription`" with a toast if no direct link exists). After the external tab opens, a confirmation prompt asks "Did you cancel this subscription?" — if yes, status is set to `cancelled` (which also logs savings; see Savings counter).
+- The list supports server-side search (name/provider), status filtering, and is sorted by next renewal date.
+- Edit or delete via row actions; status changes (pause/cancel/reactivate) happen in the edit modal. Deletes require confirmation.
 
 #### PDF statement upload & recurring-payment detection
 
@@ -70,70 +69,44 @@ When you upload a PDF statement (max 10 MB):
 
 #### Dashboard overview
 
-| Stat | Meaning |
-|------|---------|
-| Monthly spending | Sum of active subscriptions converted to your currency and normalized to a monthly figure (yearly ÷ 12, weekly × 4.33, …) |
-| Active subscriptions | Count of `active` subscriptions |
-| Upcoming renewals | Next renewals by date |
-| Total subscriptions | All subscriptions regardless of status |
-| You've saved | Lifetime total saved from cancelled/paused subscriptions (see Savings counter) displayed as "You've saved {amount} since joining." |
+| Stat                 | Meaning                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Monthly spending     | Sum of active subscriptions converted to your currency and normalized to a monthly figure (yearly ÷ 12, weekly × 4.33, …) |
+| Active subscriptions | Count of `active` subscriptions                                                                                           |
+| Upcoming renewals    | Next renewals by date                                                                                                     |
+| Total subscriptions  | All subscriptions regardless of status                                                                                    |
 
-Plus panels: **Upcoming renewals** (next 5 with dates and amounts), **Spending by category** (monthly totals per category with budget-cap progress bars — grey <80%, amber 80–100%, red >100% when a cap is set), and **Ending trials** (trials sorted by `trialEndDate`, shown when any trial exists). A **Calendar view** at `/dashboard/calendar` shows a month grid with renewals plotted on billing dates (name + amount per day, projected per billing cycle), month navigation, and a popover/list for days with renewals. Exchange rates are fetched live (1-hour cache) with hardcoded fallbacks.
-
-#### Price-hike detection
-
-- Price history is seeded on creation (`priceHistory: [{ amount, currency, date, source: "initial" }]`).
-- On manual amount edit (`PATCH /api/subscriptions/:id`) or statement confirm flow, `applyAmountChange` compares the new amount to the previous one. Any change pushes a new entry (`source: "manual"` or `"statement"`); only a same-currency increase creates a `price_change` notification with message like `"Netflix increased from $15.99 to $19.99 (+25%)"` (stored via the `Notification` model/feed). Decreases and unchanged amounts update history but do not notify.
-
-#### Savings counter
-
-- When status changes to `cancelled` or `paused` (from any non-savings state), the normalized monthly amount (`monthlyEquivalent(amount, billingCycle)`) is logged to a `SavingsLog` collection (`userId`, `subscriptionId`, `name`, `amount`, `currency`, `status`, `date`).
-- `GET /api/savings` returns `{ total, currency, entries }` — total is lifetime savings converted to `preferred_currency` via the existing exchange-rate utility; entries are sorted newest-first. Reactivating a subscription does not delete its historical log; re-cancelling logs a new entry.
-
-#### Free trial tracking
-
-- Subscriptions support `status: "trial"` with required `trialEndDate` (validated on create/update). Frontend shows a "Trial" badge in the table and an "Ending trials" section on the dashboard.
-- The existing hourly cron now also checks trials ending in **3 days** (`2–3` day window) and **1 day** (`1` day) and sends distinct emails via `EmailService.sendTrialEndingEmail` ("Your {name} trial ends in 3 days and will start billing {amount}") reusing the `BillingReminder` idempotency unique index `(subscriptionId, billingDate, reminderType)` with `reminderType: "trial_3_days" | "trial_1_days"`.
-
-#### Budget caps per category
-
-- Users may set an optional monthly budget cap per category in Settings. Stored on `User.budgetCaps` as `Record<category, capAmount>` in `preferred_currency`.
-- On add/edit subscription the UI computes the category's new monthly total (converted + normalized) and shows a non-blocking warning if it would exceed the cap: `"This puts Entertainment at {total}/{cap} for the month"`. Saving is never blocked.
-- On the dashboard's "Spending by category" panel caps render as progress bars (grey <80%, amber 80–100%, red >100%).
+Plus two panels: **Upcoming renewals** (next 5 with dates and amounts) and **Spending by category** (monthly totals per category). Exchange rates are fetched live (1-hour cache) with hardcoded fallbacks.
 
 #### Billing reminder emails
 
-An hourly cron (plus manual trigger via `POST /api/billing-reminders/run`) sends emails for active subscriptions renewing within 7 days and for trials ending soon:
+An hourly cron (plus manual trigger via `POST /api/billing-reminders/run`) sends emails for active subscriptions renewing within 7 days:
 
-| Window | When | Example subject |
-|--------|------|-----------------|
-| 7-day | 4–7 days before | `⏰ {name} subscription due in 7 days` |
-| 3-day | 2–3 days before | `⚠️ {name} subscription due in 3 days` |
-| 1-day | Day before | `🚨 {name} subscription due tomorrow` |
-| Trial 3-day | 2–3 days before trial ends | `⚠️ {name} free trial ends in 3 days` |
-| Trial 1-day | Day before trial ends | `🚨 {name} free trial ends tomorrow` |
+| Window | When            | Example subject                        |
+| ------ | --------------- | -------------------------------------- |
+| 7-day  | 4–7 days before | `⏰ {name} subscription due in 7 days` |
+| 3-day  | 2–3 days before | `⚠️ {name} subscription due in 3 days` |
+| 1-day  | Day before      | `🚨 {name} subscription due tomorrow`  |
 
 - Amounts are shown in **your** preferred currency; the stored subscription is untouched.
-- Each email includes the service, amount, billing/trial date, and a link back to the dashboard. Trial emails note the upcoming charge (e.g. "Your {name} trial ends in 3 days and will start billing {amount}").
-- Idempotent: a unique `(subscriptionId, billingDate, reminderType)` index guarantees each reminder is sent **once per billing cycle**; trial reminders use `trial_3_days` / `trial_1_days` types.
+- Each email includes the service, amount, billing date, and a link back to the dashboard.
+- Idempotent: a unique `(subscriptionId, billingDate, reminderType)` index guarantees each reminder is sent **once per billing cycle**.
 - Skips users who opted out of email, cancelled/paused subscriptions, and expired dates.
 
 #### Notifications, settings & preferences
 
-- **Notifications page** — In-app notification feed with unread highlighting, per-item "Mark read", and "Mark all as read". Renewal reminders themselves are delivered by email. Price-hike notifications (`type: "price_change"`) also appear here.
-- **Settings** — Profile (name, email), preferred display currency (NGN / USD / EUR / GBP), email opt-in toggle, and **category budget caps** (optional monthly caps per category in preferred currency; e.g. entertainment: 50, productivity: 30 — zero/empty clears the cap).
+- **Notifications page** — In-app notification feed with unread highlighting, per-item "Mark read", and "Mark all as read". Renewal reminders themselves are delivered by email.
+- **Settings** — Profile (name, email), preferred display currency (NGN / USD / EUR / GBP), and the email opt-in toggle that controls reminder emails.
 - **Currency** — Amounts are stored in their original currency and converted for display/emails using live exchange rates (USD-based cross-rates, 1-hour cache, fallback table). The dashboard never rewrites your stored data.
 
 #### Emails Recuro sends
 
-| Email | Trigger |
-|-------|---------|
-| `Sign in to Recuro` | Magic link requested (expires in 15 minutes) |
-| `Welcome to Recuro` | First sign-in |
-| `Detected: {name}` | Top detected candidates after a statement upload (if opted in) |
-| Billing reminders (7/3/1 day) | Before each active renewal (if opted in) |
-| Trial ending (3 / 1 day) | Trial ending in 3 days / tomorrow (if opted in) |
-| Price hike (in-app) | `{name} increased from {old} to {new} ({% change})` — in-app notification on hike via statement or manual edit |
+| Email                         | Trigger                                                        |
+| ----------------------------- | -------------------------------------------------------------- |
+| `Sign in to Recuro`           | Magic link requested (expires in 15 minutes)                   |
+| `Welcome to Recuro`           | First sign-in                                                  |
+| `Detected: {name}`            | Top detected candidates after a statement upload (if opted in) |
+| Billing reminders (7/3/1 day) | Before each active renewal (if opted in)                       |
 
 ## Monorepo Layout
 
@@ -257,77 +230,69 @@ All routes are prefixed with `/api`.
 
 ### Health Check
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/api/health` | No | Returns `{ status: "ok" }` |
+| Method | Path          | Auth | Description                |
+| ------ | ------------- | ---- | -------------------------- |
+| GET    | `/api/health` | No   | Returns `{ status: "ok" }` |
 
 ### Auth Routes (`/api/auth`)
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/api/auth/google` | No | Initiates Google OAuth login |
-| GET | `/api/auth/google/callback` | No | Google OAuth callback, redirects to dashboard |
-| POST | `/api/auth/magic-link` | No | Sends a passwordless sign-in email |
-| GET | `/api/auth/verify?token=...` | No | Verifies magic link, creates user, establishes session |
-| GET | `/api/auth/me` | Yes | Returns current user profile |
-| POST | `/api/auth/logout` | Yes | Destroys session and clears cookie |
+| Method | Path                         | Auth | Description                                            |
+| ------ | ---------------------------- | ---- | ------------------------------------------------------ |
+| GET    | `/api/auth/google`           | No   | Initiates Google OAuth login                           |
+| GET    | `/api/auth/google/callback`  | No   | Google OAuth callback, redirects to dashboard          |
+| POST   | `/api/auth/magic-link`       | No   | Sends a passwordless sign-in email                     |
+| GET    | `/api/auth/verify?token=...` | No   | Verifies magic link, creates user, establishes session |
+| GET    | `/api/auth/me`               | Yes  | Returns current user profile                           |
+| POST   | `/api/auth/logout`           | Yes  | Destroys session and clears cookie                     |
 
 **POST /api/auth/magic-link** body: `{ email, emailConsent?, preferredCurrency? }`
 
 ### Subscription Routes (`/api/subscriptions`) -- All require auth
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/subscriptions` | List subscriptions. Query: `search`, `status`, `category`, `from`, `to` (ISO dates filter `nextBillingDate`; powers calendar view) |
-| GET | `/api/subscriptions/:id` | Get a subscription by ID (includes `priceHistory`, `trialEndDate`) |
-| POST | `/api/subscriptions` | Create a subscription |
-| PATCH | `/api/subscriptions/:id` | Update a subscription (partial) |
-| DELETE | `/api/subscriptions/:id` | Delete a subscription |
+| Method | Path                     | Description                                               |
+| ------ | ------------------------ | --------------------------------------------------------- |
+| GET    | `/api/subscriptions`     | List subscriptions. Query: `search`, `status`, `category` |
+| GET    | `/api/subscriptions/:id` | Get a subscription by ID                                  |
+| POST   | `/api/subscriptions`     | Create a subscription                                     |
+| PATCH  | `/api/subscriptions/:id` | Update a subscription (partial)                           |
+| DELETE | `/api/subscriptions/:id` | Delete a subscription                                     |
 
-**POST /api/subscriptions** body: `{ name, provider, amount, billingCycle, nextBillingDate, category?, currency?, status?, trialEndDate? }`
+**POST /api/subscriptions** body: `{ name, provider, amount, billingCycle, nextBillingDate, category?, currency? }`
 
-billingCycle must be one of: `weekly`, `monthly`, `quarterly`, `yearly`; status may be `active`, `paused`, `cancelled`, `trial` (trial requires `trialEndDate` ISO date). Prices are recorded in `priceHistory`; amount increases in same currency emit a `price_change` notification.
+billingCycle must be one of: `weekly`, `monthly`, `quarterly`, `yearly`
 
 ### Notification Routes (`/api/notifications`) -- All require auth
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/notifications` | List latest 50 notifications (newest first) |
-| PATCH | `/api/notifications/:id/read` | Mark a single notification as read |
-| PATCH | `/api/notifications/read-all` | Mark all notifications as read |
+| Method | Path                          | Description                                 |
+| ------ | ----------------------------- | ------------------------------------------- |
+| GET    | `/api/notifications`          | List latest 50 notifications (newest first) |
+| PATCH  | `/api/notifications/:id/read` | Mark a single notification as read          |
+| PATCH  | `/api/notifications/read-all` | Mark all notifications as read              |
 
 ### User Routes (`/api/user`) -- All require auth
 
-| Method | Path | Description |
-|--------|------|-------------|
-| PATCH | `/api/user/profile` | Update profile (including budget caps) |
+| Method | Path                | Description    |
+| ------ | ------------------- | -------------- |
+| PATCH  | `/api/user/profile` | Update profile |
 
-**PATCH /api/user/profile** body: `{ name?, email?, preferred_currency?, email_notifications_enabled?, budgetCaps? }`
+**PATCH /api/user/profile** body: `{ name?, email?, preferred_currency?, email_notifications_enabled? }`
 
-preferred_currency must be one of: `NGN`, `USD`, `EUR`, `GBP`; `budgetCaps` is an object `Record<category, number>` of monthly caps in preferred currency (e.g. `{ entertainment: 50, productivity: 30 }`). Zero/empty clears a cap. Alias `budget_caps` also accepted.
-
-### Savings Routes (`/api/savings`) -- All require auth
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/savings` | Lifetime savings total (converted to preferred currency) + log entries sorted newest-first |
-
-**GET /api/savings** response: `{ total: number, currency: string, entries: SavingsLog[] }` — each entry is `{ name, amount (monthly normalized), currency, status, date }` logged on first transition to `cancelled`/`paused`.
+preferred_currency must be one of: `NGN`, `USD`, `EUR`, `GBP`
 
 ### Statement Upload Routes (`/api/transactions/statements`) -- All require auth
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/transactions/statements` | Upload a PDF bank statement (field: `statement`) |
-| POST | `/api/transactions/statements/confirm` | Confirm detected subscriptions |
+| Method | Path                                   | Description                                      |
+| ------ | -------------------------------------- | ------------------------------------------------ |
+| POST   | `/api/transactions/statements`         | Upload a PDF bank statement (field: `statement`) |
+| POST   | `/api/transactions/statements/confirm` | Confirm detected subscriptions                   |
 
 **POST /api/transactions/statements/confirm** body: `{ statementId, indices: number[] }`
 
 ### Billing Reminder Routes (`/api/billing-reminders`)
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/billing-reminders/run` | Yes | Manually trigger billing reminder cron job |
+| Method | Path                         | Auth | Description                                |
+| ------ | ---------------------------- | ---- | ------------------------------------------ |
+| POST   | `/api/billing-reminders/run` | Yes  | Manually trigger billing reminder cron job |
 
 ## Billing Reminder Notification System
 
@@ -350,39 +315,35 @@ The core notification feature automatically sends email reminders before subscri
 
 ### Public Pages
 
-| Path | Page | Description |
-|------|------|-------------|
-| `/` | LandingPage | Marketing page with features, pricing, CTA |
-| `/login` | LoginPage | Login with Google OAuth or magic link |
-| `/signup` | SignupPage | Create account with email, currency preference, consent |
-| `/auth/verify` | VerifyPage | Handles magic link verification redirect |
+| Path           | Page        | Description                                             |
+| -------------- | ----------- | ------------------------------------------------------- |
+| `/`            | LandingPage | Marketing page with features, pricing, CTA              |
+| `/login`       | LoginPage   | Login with Google OAuth or magic link                   |
+| `/signup`      | SignupPage  | Create account with email, currency preference, consent |
+| `/auth/verify` | VerifyPage  | Handles magic link verification redirect                |
 
 ### Dashboard Pages (require auth)
 
-| Path | Page | Description |
-|------|------|-------------|
-| `/dashboard` | OverviewPage | Stats cards (monthly spending, active subs, upcoming renewals, **You've saved**), spending by category with **budget cap progress bars**, upcoming renewals, **Ending trials** section |
-| `/dashboard/subscriptions` | SubscriptionsPage | Full CRUD table (trial badge), search/filter, PDF upload flow, add/edit modal (trial fields, budget warnings), **Manage** (opens edit) + **Cancel Subscription** (external URL lookup + confirm → mark cancelled) row actions |
-| `/dashboard/calendar` | CalendarPage | Month grid with renewals plotted (name+amount per day), month navigation, day popover/list |
-| `/dashboard/notifications` | NotificationsPage | Notification list with read/unread, mark read actions (includes price-hike notifications) |
-| `/dashboard/settings` | SettingsPage | Profile form, currency preference, email notification toggle, **category budget caps** inputs |
+| Path                       | Page              | Description                                                                          |
+| -------------------------- | ----------------- | ------------------------------------------------------------------------------------ |
+| `/dashboard`               | OverviewPage      | Stats cards (monthly spending, active subs, upcoming renewals), spending by category |
+| `/dashboard/subscriptions` | SubscriptionsPage | Full CRUD table, search/filter, PDF upload flow, add/edit modal                      |
+| `/dashboard/notifications` | NotificationsPage | Notification list with read/unread, mark read actions                                |
+| `/dashboard/settings`      | SettingsPage      | Profile form, currency preference, email notification toggle                         |
 
 ## Test Suite
 
-The backend has **101 tests** across 10 test files:
+The backend has **66 tests** across 7 test files:
 
-| Test File | Tests | What it covers |
-|-----------|-------|----------------|
-| `health.test.ts` | 1 | Health check endpoint |
-| `auth.test.ts` | 10 | Magic link flow, verification, token expiry, reuse, metadata |
-| `subscriptions.test.ts` | 13 | CRUD, validation, search, auth guard |
-| `notifications.test.ts` | 5 | List, sort, mark read, mark all read |
-| `user.test.ts` | 5 | Profile update, validation, auth guard |
-| `statements.test.ts` | 6 | Upload, confirm, validation |
-| `billing-reminders.test.ts` | 19 | 7/3/1 day reminders, idempotency, skip conditions, currency conversion, manual trigger |
-| `price-hike.test.ts` | 8 | Price history seeding, hike on manual edit + statement re-upload, no false positives, history updates on decrease |
-| `savings.test.ts` | 14 | Save on cancel/pause (monthly normalization), no duplicate while cancelled, reactivation, GET /api/savings totals + conversion + sort |
-| `trials.test.ts` | 13 | Trial create/update validation, trial end date clearing, 3/1 day trial emails, idempotency, skip conditions |
+| Test File                   | Tests | What it covers                                                                         |
+| --------------------------- | ----- | -------------------------------------------------------------------------------------- |
+| `health.test.ts`            | 1     | Health check endpoint                                                                  |
+| `auth.test.ts`              | 10    | Magic link flow, verification, token expiry, reuse, metadata                           |
+| `subscriptions.test.ts`     | 13    | CRUD, validation, search, auth guard                                                   |
+| `notifications.test.ts`     | 5     | List, sort, mark read, mark all read                                                   |
+| `user.test.ts`              | 5     | Profile update, validation, auth guard                                                 |
+| `statements.test.ts`        | 6     | Upload, confirm, validation                                                            |
+| `billing-reminders.test.ts` | 19    | 7/3/1 day reminders, idempotency, skip conditions, currency conversion, manual trigger |
 
 ### Key notification tests
 
