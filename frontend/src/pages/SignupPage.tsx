@@ -143,7 +143,7 @@ export default function SignupPage() {
           )}
         </button>
         <p className="m-0 text-center text-[11px] leading-5 text-ink-muted">
-          By creating an account, you agree to the <Link to="/" className="font-semibold text-link-text underline underline-offset-2 hover:text-link-hover">Terms</Link> and <Link to="/" className="font-semibold text-link-text underline underline-offset-2 hover:text-link-hover">Privacy Policy</Link>.
+          By creating an account, you agree to the <Link to="/terms" className="font-semibold text-link-text underline underline-offset-2 hover:text-link-hover">Terms</Link> and <Link to="/privacy" className="font-semibold text-link-text underline underline-offset-2 hover:text-link-hover">Privacy Policy</Link>.
         </p>
       </form>
     </AuthLayout>

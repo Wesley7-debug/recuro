@@ -7,8 +7,8 @@ export default function LandingFooter() {
         Recuro<span className="text-primary">.</span>
       </Link>
       <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[10px] text-ink-muted">
-        <a href="#" className="hover:text-primary transition-colors">Privacy</a>
-        <a href="#" className="hover:text-primary transition-colors">Terms</a>
+        <Link to="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
+        <Link to="/terms" className="hover:text-primary transition-colors">Terms</Link>
       </nav>
       <div className="flex items-center gap-4">
         <span className="font-mono text-[9px] text-ink-faint">&copy; 2026 Recuro</span>

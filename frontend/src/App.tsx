@@ -12,6 +12,8 @@ import SubscriptionsPage from "./pages/dashboard/SubscriptionsPage";
 import NotificationsPage from "./pages/dashboard/NotificationsPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import CalendarPage from "./pages/dashboard/CalendarPage";
+import TermsPage from "./pages/TermsPage";
+import PrivacyPage from "./pages/PrivacyPage";
 import { ToastContainer } from "./components/Toast";
 
 export default function App() {
@@ -39,6 +41,8 @@ export default function App() {
           />
           <Route path="/auth/verify" element={<VerifyPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route
             path="/dashboard"
             element={
