@@ -19,9 +19,9 @@ export default function AuthLayout({
   footerLinkText,
 }: AuthLayoutProps) {
   return (
-    <div className="flex min-h-svh max-[580px]:block">
-      {/* Left Panel */}
-      <aside className="relative md:flex w-[44%] shrink-0 flex-col overflow-hidden hidden bg-primary px-14 py-10 text-ink-strong max-[800px]:w-[41%] max-[800px]:px-8 max-[580px]:min-h-[320px] max-[580px]:w-full max-[580px]:p-8">
+    <div className="flex min-h-svh bg-bg">
+      {/* Left Panel — hidden on mobile, only form shows */}
+      <aside className="relative hidden md:flex w-[44%] shrink-0 flex-col overflow-hidden bg-primary px-14 py-10 text-ink-strong max-[800px]:w-[41%] max-[800px]:px-8">
         {/* Logo Header */}
         <Link
           to="/"
@@ -37,20 +37,20 @@ export default function AuthLayout({
         </Link>
 
         {/* Hero Section Content */}
-        <div className="my-auto w-full max-w-[460px] max-[580px]:py-6">
-          <h1 className="my-6 text-[clamp(48px,5vw,76px)] font-bold leading-[0.98] tracking-[-0.05em] text-ink-strong max-[580px]:my-2 max-[580px]:text-[38px]">
+        <div className="my-auto w-full max-w-[460px]">
+          <h1 className="my-6 text-[clamp(48px,5vw,76px)] font-bold leading-[0.98] tracking-[-0.05em] text-ink-strong">
             Right where
             <br />
             you <em className="not-italic text-white">belong.</em>
           </h1>
-          <p className="m-0 text-[18px] leading-[1.6] text-orange-panel-body max-[800px]:text-[15px] max-[580px]:hidden">
+          <p className="m-0 text-[18px] leading-[1.6] text-orange-panel-body max-[800px]:text-[15px]">
             Track every subscription. Never lose
             <br />
             sight of where your money goes.
           </p>
 
           {/* Interactive Dynamic Floating Cards */}
-          <div className="mt-12 space-y-4 max-[800px]:mt-8 max-[580px]:hidden">
+          <div className="mt-12 space-y-4 max-[800px]:mt-8">
             {/* Upper Card */}
             <div className="relative w-[92%] -rotate-2 rounded-card bg-orange-panel-card-bg p-5 shadow-[0_12px_30px_rgba(0,0,0,0.06)]">
               <div className="flex items-start gap-3.5">
@@ -98,8 +98,8 @@ export default function AuthLayout({
         </div>
       </aside>
 
-      {/* Right Panel */}
-      <section className="flex h-full ml-25 min-w-0 flex-1 flex-col px-12 max-[800px]:px-8 max-[580px]:min-h-0 max-[580px]:px-6">
+      {/* Right Panel — full width on mobile, centered form */}
+      <section className="flex min-w-0 flex-1 flex-col items-center px-12 max-[800px]:px-8 max-[580px]:px-6">
         {/* Top Header Navigation Bar */}
         <div className="flex w-full items-center justify-between gap-4 py-8 text-[13px] text-ink-faint max-[580px]:py-5">
           <Link
@@ -144,8 +144,8 @@ export default function AuthLayout({
           </span>
         </div>
 
-        {/* Content Box */}
-        <div className="my-auto w-full max-w-[420px] py-10 max-[800px]:max-w-[380px] max-[580px]:max-w-none max-[580px]:py-10">
+        {/* Content Box — centered */}
+        <div className="my-auto w-full max-w-[420px] py-10 max-[800px]:max-w-[380px] max-[580px]:max-w-none">
           <div className="mb-10">
             <h2 className="my-0 text-[42px] font-semibold leading-[1.1] tracking-[-1.8px] text-ink max-[800px]:text-[36px] max-[580px]:text-[34px]">
               {heading}

@@ -15,6 +15,8 @@ function sanitizeFrontendUrl(raw: string): string {
   return v || "http://localhost:5173";
 }
 
+const smtpPort = parseInt(process.env.SMTP_PORT || "465", 10);
+
 export const env = {
   MONGODB_URI: process.env.MONGODB_URI || "mongodb://localhost:27017/recuro",
   SESSION_SECRET: process.env.SESSION_SECRET || "dev-secret",
@@ -25,4 +27,8 @@ export const env = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
   GMAIL_EMAIL: (process.env.GMAIL_EMAIL || "").replace(/^["'\s]+|["'\s]+$/g, "").trim().replace(/["']/g, ""),
   GMAIL_APP_PASSWORD: (process.env.GMAIL_APP_PASSWORD || "").replace(/["']/g, "").replace(/\s+/g, "").trim(),
+  SMTP_HOST: (process.env.SMTP_HOST || "").trim(),
+  SMTP_PORT: smtpPort,
+  SMTP_SECURE: process.env.SMTP_SECURE === undefined ? smtpPort === 465 : process.env.SMTP_SECURE === "true",
+  SMTP_TIMEOUT_MS: parseInt(process.env.SMTP_TIMEOUT_MS || "15000", 10),
 };

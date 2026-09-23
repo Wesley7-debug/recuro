@@ -2,11 +2,20 @@ import nodemailer from "nodemailer";
 import { env } from "../config/env";
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  ...(env.SMTP_HOST
+    ? {
+        host: env.SMTP_HOST,
+        port: env.SMTP_PORT,
+        secure: env.SMTP_SECURE,
+      }
+    : { service: "gmail" }),
   auth: {
     user: env.GMAIL_EMAIL,
     pass: env.GMAIL_APP_PASSWORD,
   },
+  connectionTimeout: env.SMTP_TIMEOUT_MS,
+  greetingTimeout: env.SMTP_TIMEOUT_MS,
+  socketTimeout: env.SMTP_TIMEOUT_MS,
 });
 
 if (!env.GMAIL_EMAIL || !env.GMAIL_APP_PASSWORD) {
