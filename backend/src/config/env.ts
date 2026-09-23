@@ -23,6 +23,6 @@ export const env = {
   PORT: parseInt(process.env.PORT || "3001", 10),
   NODE_ENV: process.env.NODE_ENV || "development",
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
-  GMAIL_EMAIL: process.env.GMAIL_EMAIL || "",
-  GMAIL_APP_PASSWORD: process.env.GMAIL_APP_PASSWORD || "",
+  GMAIL_EMAIL: (process.env.GMAIL_EMAIL || "").replace(/^["'\s]+|["'\s]+$/g, "").trim().replace(/["']/g, ""),
+  GMAIL_APP_PASSWORD: (process.env.GMAIL_APP_PASSWORD || "").replace(/["']/g, "").replace(/\s+/g, "").trim(),
 };

@@ -9,6 +9,15 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+if (!env.GMAIL_EMAIL || !env.GMAIL_APP_PASSWORD) {
+  console.warn("[email] GMAIL_EMAIL or GMAIL_APP_PASSWORD not set — magic links will fail to send. Set them in backend/.env");
+} else {
+  transporter.verify((err) => {
+    if (err) console.error("[email] Gmail transporter verify failed:", err.message);
+    else console.log(`[email] transporter ready as ${env.GMAIL_EMAIL}`);
+  });
+}
+
 const FROM = `"Recuro" <${env.GMAIL_EMAIL || "noreply@recuro.app"}>`;
 
 const C = {
@@ -89,6 +98,10 @@ function wrap(title: string, content: string, accentBarColor?: string): string {
 
 async function send(to: string, subject: string, html: string) {
   try {
+    if (!env.GMAIL_EMAIL || !env.GMAIL_APP_PASSWORD) {
+      console.error("[email] cannot send — missing GMAIL credentials");
+      throw new Error("Email not configured");
+    }
     await transporter.sendMail({
       from: FROM,
       to,
@@ -100,8 +113,9 @@ async function send(to: string, subject: string, html: string) {
         "X-Mailer": "Recuro",
       },
     });
-  } catch {
-    // Email failed silently
+  } catch (err: any) {
+    console.error(`[email] failed to send "${subject}" to ${to}:`, err?.message || err);
+    throw err;
   }
 }
 

@@ -35,6 +35,9 @@ export default function TermsPage() {
               <p className="text-[13px] leading-relaxed text-ink-body">
                 <strong className="text-ink">Summary:</strong> Recuro helps you track subscriptions, parse bank statements with AI, and reminds you before renewals. These Terms explain your rights, responsibilities, and the limits of our service. Please read them carefully — by creating an account you agree to them.
               </p>
+              <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
+                Recuro is a side project made by <a href="https://x.com/slycodez" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:text-primary-hover underline underline-offset-2"> @slycodez — x.com/slycodez</a>. It is provided as-is for personal use, with best-effort support.
+              </p>
             </div>
           </div>
 
@@ -181,7 +184,8 @@ export default function TermsPage() {
             <section id="section-16" className="scroll-mt-24">
               <h2 className="text-[20px] font-bold tracking-[-0.5px] text-ink mb-3">16. Contact</h2>
               <p>
-                If you have questions about these Terms, please contact us at <a href="mailto:support@recuro.app" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">support@recuro.app</a> or via the feedback form in Dashboard → Settings. For legal notices, use <a href="mailto:legal@recuro.app" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">legal@recuro.app</a>. We aim to respond within 5 business days. Our mailing address will be provided upon request for formal correspondence.
+                Recuro is a side project made by <a href="https://x.com/slycodez" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">slycodez — x.com/slycodez</a>. For any questions about these Terms, privacy, or support, contact us at{" "}
+                <a href="mailto:userecuro@gmail.com" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">userecuro@gmail.com</a> — this is the only official contact for Recuro. You can also reach out via DM on X. We aim to respond within 5 business days. There is no separate legal or support mailbox; all inquiries go to the same address.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link to="/privacy" className="ui-btn-secondary">

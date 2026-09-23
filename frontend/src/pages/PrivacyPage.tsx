@@ -35,6 +35,9 @@ export default function PrivacyPage() {
               <p className="text-[13px] leading-relaxed text-ink-body">
                 <strong className="text-ink">Summary:</strong> Recuro is designed to be privacy-minimal. We collect only what we need to track your subscriptions, send magic links and reminders, and improve detection. We never sell your data, we process bank statements only for your review, and you can delete your data anytime from Settings.
               </p>
+              <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
+                Recuro is a side project made by <a href="https://x.com/slycodez" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:text-primary-hover underline underline-offset-2"> @slycodez — x.com/slycodez</a>. It is run by a single maintainer; please use the contact below for all privacy inquiries.
+              </p>
             </div>
           </div>
 
@@ -80,7 +83,7 @@ export default function PrivacyPage() {
             <section id="section-2" className="scroll-mt-24">
               <h2 className="text-[20px] font-bold tracking-[-0.5px] text-ink mb-3">2. Data Controller</h2>
               <p>
-                For purposes of the General Data Protection Regulation (GDPR) and other applicable privacy laws, Recuro is the data controller for personal data processed through the Service. Where we act as a processor for optional AI features (e.g., Google Gemini statement parsing), we remain responsible for ensuring compliant processing instructions. Our registered contact for privacy matters is <a href="mailto:privacy@recuro.app" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">privacy@recuro.app</a>. If you are in the European Economic Area (EEA), United Kingdom, or Switzerland, you also have the right to lodge a complaint with your local supervisory authority. For Nigerian users, we comply with the Nigeria Data Protection Act 2023 (NDPA) and NDPR principles.
+                For purposes of the General Data Protection Regulation (GDPR) and other applicable privacy laws, Recuro is the data controller for personal data processed through the Service. Recuro is a side project made by <a href="https://x.com/slycodez" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">slycodez — x.com/slycodez</a>. Where we act as a processor for optional AI features (e.g., Google Gemini statement parsing), we remain responsible for ensuring compliant processing instructions. Our sole registered contact for privacy matters is <a href="mailto:userecuro@gmail.com" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">userecuro@gmail.com</a>. If you are in the European Economic Area (EEA), United Kingdom, or Switzerland, you also have the right to lodge a complaint with your local supervisory authority. For Nigerian users, we comply with the Nigeria Data Protection Act 2023 (NDPA) and NDPR principles.
               </p>
             </section>
 
@@ -186,7 +189,7 @@ export default function PrivacyPage() {
                 <li><strong className="text-ink">Complain:</strong> Lodge a complaint with your supervisory authority if you believe processing violates applicable law.</li>
               </ul>
               <p className="mt-3">
-                To exercise rights, email <a href="mailto:privacy@recuro.app" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">privacy@recuro.app</a> with your registered email. We will verify your identity via a magic link and respond within 30 days (or sooner where required). You may also directly update profile fields, currency, and email consent in Dashboard → Settings, and delete subscriptions individually from SubscriptionsPage with confirmation.
+                To exercise rights, email <a href="mailto:userecuro@gmail.com" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">userecuro@gmail.com</a> with your registered email — the only official contact for Recuro, run as a side project by <a href="https://x.com/slycodez" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">x.com/slycodez</a>. We will verify your identity via a magic link and respond within 30 days (or sooner where required). You may also directly update profile fields, currency, and email consent in Dashboard → Settings, and delete subscriptions individually from SubscriptionsPage with confirmation.
               </p>
             </section>
 
@@ -200,7 +203,7 @@ export default function PrivacyPage() {
             <section id="section-14" className="scroll-mt-24">
               <h2 className="text-[20px] font-bold tracking-[-0.5px] text-ink mb-3">14. Children’s Privacy</h2>
               <p>
-                Recuro is not directed to children under 16, and we do not knowingly collect personal data from children. If you are a parent or guardian and believe a child has provided us personal data, contact us at privacy@recuro.app and we will promptly delete it. Accounts found to be operated by underage users in violation of Terms will be terminated.
+                Recuro is not directed to children under 16, and we do not knowingly collect personal data from children. If you are a parent or guardian and believe a child has provided us personal data, contact us at <a href="mailto:userecuro@gmail.com" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">userecuro@gmail.com</a> and we will promptly delete it. Accounts found to be operated by underage users in violation of Terms will be terminated.
               </p>
             </section>
 
@@ -214,7 +217,7 @@ export default function PrivacyPage() {
             <section id="section-16" className="scroll-mt-24">
               <h2 className="text-[20px] font-bold tracking-[-0.5px] text-ink mb-3">16. Contact &amp; Complaints</h2>
               <p>
-                For privacy questions, data-rights requests, or to report a concern, contact: <a href="mailto:privacy@recuro.app" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">privacy@recuro.app</a> and <a href="mailto:support@recuro.app" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">support@recuro.app</a>. We aim to respond within 10 business days. For legal or law-enforcement matters, use <a href="mailto:legal@recuro.app" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">legal@recuro.app</a>. You may also write to us and we will provide a postal address upon request. If you are in the EEA/UK, you may complain to your national data protection authority; in Nigeria, to the Nigeria Data Protection Commission (NDPC).
+                Recuro is a side project made by <a href="https://x.com/slycodez" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">slycodez — x.com/slycodez</a>. For privacy questions, data-rights requests, or to report a concern, contact our only official mailbox: <a href="mailto:userecuro@gmail.com" className="text-primary hover:text-primary-hover font-semibold underline underline-offset-2">userecuro@gmail.com</a>. We aim to respond within 10 business days. There is no separate legal or privacy mailbox. You may also DM on X. If you are in the EEA/UK, you may complain to your national data protection authority; in Nigeria, to the Nigeria Data Protection Commission (NDPC).
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link to="/terms" className="ui-btn-secondary">
